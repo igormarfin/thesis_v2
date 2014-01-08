@@ -1,0 +1,145 @@
+TMPDIR = $$HOME/tmp/disser
+TMPDIR2SVN = $$HOME/tmp/disser/SVN
+
+ALL_FILES = Makefile \
+	    $(TEX_SOURCES) \
+	    $(FIGURES) \
+	    $(BIBS) \
+            $(RST)  \
+            $(PYS) \
+            rst2pdfNoErrors 
+
+FILE=thesis_v2
+
+Dirs:=${shell find . -type d | grep -v ".svn" | grep  "./"}
+TEX_SOURCES:=${shell  find .  -iname "*.tex" }
+FIGURES:=${shell find .  -iname "*.eps" }
+BIBS:=${shell find .  -iname "*.bib" }
+PYS:=${shell find .  -iname "*.py" }
+RST:=${shell find .  -iname "*.rst" }  
+TeXFromRST:=$(foreach rstfile,$(RST),$(patsubst,%.tex,%.rst,$(rstfile)))		
+MAKEFILE=Makefile
+SCRIPTS:=${shell find . -iname "rst2pdfNoErrors" }
+SCRIPTS2:=${shell find . -iname "*.sh" }
+CURDIR=${shell pwd }
+
+
+all : $(FILE).pdf
+
+#$(FILE).pdf: $(FILE).ps
+#	ps2pdf $(FILE).ps
+
+#$(FILE).ps : $(FILE).dvi
+#	dvips -t a4 -f <$(FILE).dvi >$(FILE).ps
+
+#$(FILE).dvi :$(TEX_SOURCES) \
+
+$(FILE).pdf :$(TEX_SOURCES) \
+    $(FIGURES) \
+    $(BIBS) \
+    $(RST) \
+    $(TeXFromRST) 
+	./creatPdf 
+	mv main.pdf $(FILE).pdf
+
+#	echo "latex  -interaction=batchmode   main.tex" |sh
+#	bibtex main.aux
+#	echo "latex  -interaction=batchmode  main.tex" | sh
+#	echo "pdflatex  -interaction=batchmode  main.tex" | sh
+##	latex   -interaction=batchmode  main.tex
+##	mv main.dvi $(FILE).dvi
+#	mv main.pdf $(FILE).pdf
+
+
+#%.tex : %.rst 
+#    cat rst2pdfNoErrors  | bash
+
+
+spell:  
+	for file in $(TEX_SOURCES); do \
+	aspell -t -c $${file}; \
+	done;
+
+
+Commit2SVN:
+	 mkdir -p $(TMPDIR2SVN); \
+	 cd  $(TMPDIR2SVN) ; \
+	 svn co https://my-code-iggy-floyd-de.googlecode.com/svn/branches/$(FILE); \
+     ls ; \
+     cd - ; \
+     find  ./ -iname "*gpg" -or -iname "*make*" | grep -v "*.svn*" |xargs -I {} install -D {}  $(TMPDIR2SVN)/$(FILE)/{} ; \
+     cd -; \
+	 ls ;\
+	 pwd ;\
+#	 cp -r $(CURDIR)/* $(FILE) ; \
+	 cd $(FILE) ; \
+#	 svn status | grep '?'   | sed 's/^.* /svn add --parents --force /' | bash ; \
+	 svn status \
+#	 svn status | grep '?' |  egrep ".*count|.*gpg|.*rst2pdfNoErrors|.*cls|.*Makefile" | sed 's/^.* /svn add --parents --force /' | bash ; \
+	 svn add  --force --parents   ${shell find .  -iname "*.gpg" } ${shell find . -iname "rst2pdfNoErrors" }  ${shell find .  -iname "*.cls" } Makefile --username iggy.floyd.de@gmail.com ; \
+	 svn ci ; \
+	 svn ci ${shell find .  -iname "*.gpg" }  ${shell find .  -iname "*.cls" } ${shell find . -iname "rst2pdfNoErrors" } Makefile --username iggy.floyd.de@gmail.com ; \
+	 cd $(CURDIR) ; 
+#	 rm -r  $(TMPDIR2SVN); 
+
+
+
+add2Tgz:
+	- tar -zcf $(FILE).tgz $(ALL_FILES) $(FILE).pdf
+
+cleanGPG:
+	- rm  ${shell find .  -iname "*.gpg" }  
+
+
+clean :
+	- mkdir -p $(TMPDIR)
+	- mv *.dvi *.log *.loc *.lof *.toc *.ps *.aux *.bbl *.blg  *.bak $(TMPDIR)
+
+
+doRST2PDF :
+	- echo "RST to PDF"; cat rst2pdfNoErrors  | bash
+
+
+checkOutSVN:
+	 mkdir $(TMPDIR2SVN); \
+	 cd  $(TMPDIR2SVN) ; \
+	 svn co https://my-code-iggy-floyd-de.googlecode.com/svn/branches/$(FILE); \
+	 ls ;\
+	 pwd ;\
+	 cp -r ./ $(CURDIR); \
+	 cd - ; 
+	 rm -r  $(TMPDIR2SVN); 
+
+
+
+makeSVN:
+#	- mkdir -p $(TMPDIR); \
+#	 cp $(TEX_SOURCES) $(FIGURES) $(BIBS) $(RST) $(PYS)  $(TMPDIR);\
+	 svn mkdir  https://my-code-iggy-floyd-de.googlecode.com/svn/branches/$(FILE) --username iggy.floyd.de@gmail.com ;\
+
+
+
+dirs2SVN:
+	- for dir in $(Dirs); do \
+	svn mkdir  https://my-code-iggy-floyd-de.googlecode.com/svn/branches/$(FILE)/$${dir} --username iggy.floyd.de@gmail.com ; \
+	done;
+
+
+encrypt:
+	for file in $(TEX_SOURCES) $(FIGURES) $(BIBS) $(RST) $(MAKEFILE) $(SCRIPTS) $(SCRIPTS2) $(PYS); do \
+    gpg --passphrase-fd 3 --batch -c $${file} 3< ./passwd.txt; \
+    done;
+
+decrypt:
+	for file in ${shell find .  -iname "*.gpg" }; do \
+    gpg --passphrase-fd 3  --batch   $${file} 3< ./passwd.txt; \
+    done;
+	 
+
+
+
+
+
+
+
+
