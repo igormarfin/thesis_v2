@@ -1,0 +1,99 @@
+#!/bin/bash
+
+
+a=($( find  `pwd` -iname "*.rst"  | sed -ne 's/.rst//p' ))
+
+# do reodering:
+# first -- the deepest folder, last -- the folder of rst2pdfNoErrors
+rm tmp.tmp
+rm tmp2.tmp
+
+echo ${a[*]} | tr " " "\n" | xargs -I {}  echo {} >> tmp.tmp
+cat tmp.tmp | xargs -I {} echo "ccc=\`echo  \\\"{}\\\" | awk -F'/' '{print NF}' \` ; echo \$ccc {}" | sh > tmp2.tmp
+a=($(  cat tmp2.tmp | sort -r | awk '{print $2}' ))
+
+rm tmp.tmp
+rm tmp2.tmp
+
+
+# found rst files:
+echo "Found RsT: " ${a[*]}
+
+# path to styles
+style_sheet="/mnt/WorkingPlace/Thesis/thesis/latex.tex"
+
+#  ini of the library for text operations
+. /home/school/utils.sh
+
+touch tmp.bib
+
+for ((i=0;i<${#a[*]};i++))
+do 
+text=${a[$i]}
+
+
+echo  " current RsT under consideration:  $text"
+
+Changeword "|_curpath_|" `dirname ${text}.rst`  ${text}.rst  ${text}_substituted.rst
+
+c=`dirname ${text}.rst`
+d=`pwd`
+
+#if [ $i -eq $((${#a[*]}-1)) ] 
+ if [ $c = $d ]
+ then 
+ mv tmp.bib ${text}.bib 
+ else  
+ FixAlpgenLHE  ${text}_substituted.rst  _biblio_begin_ _biblio_end_ 0; 
+# [ "$i" -ge 0 ] && FixAlpgenLHE ${text}_substituted.rst  "contents::" ":depth: 4" 0 
+ [ -f ${text}.bib ] && cat ${text}.bib >>  tmp.bib
+fi
+
+rst2latex.py   --stylesheet=$style_sheet  --quiet  ${text}_substituted.rst > ${text}.tex 
+#rst2latex.py   --stylesheet=$style_sheet  --quiet  ${text}.rst > ttt.tex 
+#rm ttt.rst
+
+
+#rst2latex.py  --latex-preamble=`cat latex2.tex` --quiet  ${text}.rst > ${text}.tex 
+
+#Changeword "|_curpath_|" `dirname ${text}.rst` ttt.tex  ${text}.tex
+#rm ttt.tex
+
+
+echo "rst2latex done"
+
+cd `dirname ${text}.tex`
+
+latex -interaction=batchmode    ${text}.tex
+
+echo "latex done"
+
+bibtex ${text}.aux
+
+echo "bibtex done"
+
+latex  -interaction=batchmode   ${text}.tex
+
+echo "latex done"
+
+
+pdflatex -interaction=batchmode    ${text}.tex
+
+echo "pdflatex done"
+
+#cat ${text}.tex | sed -e '/documentclass/d' -e '/usepackage/d' -e '/begin.*doc.*/d' -e '/end.*docum.*/d' -e '/input.*latex.*/d' >  tmpp.tex
+#mv tmpp.tex ${text}.tex
+
+
+
+echo "tex preparation done"
+
+
+
+cd -
+done
+
+[ -f tmp.bib ] && rm tmp.bib
+
+# remove all substituted
+find `pwd` -iname "*_substituted.*" -exec rm {} \;
